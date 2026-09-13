@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>डिजिटल इ-हाजिरी (PWA)</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #f0f2f5; margin: 0; color: #1c1e21; }
+    .card { background: #ffffff; padding: 24px; border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); max-width: 420px; margin: 20px auto; }
+    h2 { text-align: center; color: #1a73e8; margin-top: 0; font-size: 22px; }
+    label { font-size: 13px; font-weight: bold; color: #555; display: block; margin-top: 10px; }
+    input { width: 100%; padding: 12px; margin: 6px 0 14px 0; border: 1px solid #cccccc; border-radius: 8px; font-size: 15px; }
+    button { width: 100%; padding: 13px; margin: 6px 0; border: none; border-radius: 8px; background: #1a73e8; color: #ffffff; font-weight: bold; font-size: 15px; cursor: pointer; transition: 0.2s; }
+    button:active { transform: scale(0.98); }
+    button.alt { background: #34a853; }
+    button:disabled { background: #a5d6a7; cursor: not-allowed; }
+    #msg { margin-top: 16px; font-weight: bold; text-align: center; font-size: 14px; min-height: 20px; word-break: break-word; }
+    .info-box { background: #fff8e1; border-left: 4px solid #ffc107; padding: 12px; border-radius: 6px; margin-top: 22px; font-size: 12px; line-height: 1.6; }
+    .info-box h4 { margin: 0 0 6px 0; color: #b78103; font-size: 13px; }
+    .info-box ul { margin: 0; padding-left: 18px; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>डिजिटल इ-हाजिरी</h2>
+  
+  <label for="staffId">Staff ID</label>
+  <input type="text" id="staffId" placeholder="उदाहरण: 101">
+  
+  <label for="fullName">पूरा नाम (नयाँ दर्ताका लागि)</label>
+  <input type="text" id="fullName" placeholder="उदाहरण: राम श्रेष्ठ">
+  
+  <button onclick="registerBiometric()">बायोमेट्रिक दर्ता / रिसेट</button>
+  <button class="alt" onclick="markAttendance()">हाजिर गर्नुहोस् (Punch)</button>
+
+  <div id="msg"></div>
+
+  <div class="info-box">
+    <h4>सूचना एवं सुरक्षा नियम:</h4>
+    <ul>
+      <li>ब्राउजरको <b>Cache/Data Clear</b> गर्दा पनि हाजिरमा बाधा पुग्दैन।</li>
+      <li><b>निम्न अवस्थाहरूमा पुनः बायोमेट्रिक दर्ता आवश्यक हुन्छ:</b>
+        <ol>
+          <li>मोबाइल Factory Reset गरेमा।</li>
+          <li>फोनको Settings बाट Fingerprint/FaceID हटाएर नयाँ थपेमा।</li>
+          <li>नयाँ मोबाइल प्रयोग गरेर हाजिर गर्न खोजेमा।</li>
+        </ol>
+      </li>
+      <li>नयाँ मोबाइल फेरेमा पुनः <b>बायोमेट्रिक दर्ता / रिसेट</b> गर्नुहोस्।</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  // ==========================================
+  // १. यहाँ आफ्नो Google Web App URL हाल्नुहोस्
+  // ==========================================
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwm08541CQ2dZqgvsuMT7jiHUhVkPBAYVFAP0yIgJXF6GDF0PbazTJOoL7noPRBFW4C/exec";
+
+  function bufferToBase64(buffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+  }
+
+  async function postToBackend(payload) {
+    try {
+      const res = await fetch(WEB_APP_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    } catch (err) {
+      return { status: "error", message: "Network/Server Error: " + err.message };
+    }
+  }
+
+  async function registerBiometric() {
+    const staffId = document.getElementById('staffId').value.trim();
+    const name = document.getElementById('fullName').value.trim();
+    const msg = document.getElementById('msg');
+
+    if (!staffId || !name) {
+      msg.innerHTML = "<span style='color:#d93025;'>कृपया Staff ID र पूरा नाम दुवै भर्नुहोस्!</span>";
+      return;
+    }
+
+    if (!window.PublicKeyCredential) {
+      msg.innerHTML = "<span style='color:#d93025;'>यो ब्राउजरमा बायोमेट्रिक सपोर्ट छैन!</span>";
+      return;
+    }
+
+    try {
+      msg.innerHTML = "<span style='color:#1a73e8;'>बायोमेट्रिक सेन्सरमा औँठाछाप/Face ID राख्नुहोस्...</span>";
+      
+      const publicKeyCredentialCreationOptions = {
+        challenge: Uint8Array.from("attendance_sec_challenge", c => c.charCodeAt(0)),
+        rp: { name: "E-Attendance System", id: window.location.hostname },
+        user: {
+          id: Uint8Array.from(staffId, c => c.charCodeAt(0)),
+          name: name,
+          displayName: name,
+        },
+        pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+        authenticatorSelection: { authenticatorAttachment: "platform" },
+        timeout: 60000
+      };
+
+      const credential = await navigator.credentials.create({ publicKey: publicKeyCredentialCreationOptions });
+      const credentialId = bufferToBase64(credential.rawId);
+
+      msg.innerHTML = "<span style='color:#1a73e8;'>दर्ता प्रक्रिया सेभ हुँदैछ...</span>";
+      const response = await postToBackend({ action: "register", staffId: staffId, name: name, credentialId: credentialId });
+
+      if (response.status === "success") {
+        msg.innerHTML = "<span style='color:#188038;'>" + response.message + "</span>";
+      } else {
+        msg.innerHTML = "<span style='color:#d93025;'>" + response.message + "</span>";
+      }
+
+    } catch (err) {
+      msg.innerHTML = "<span style='color:#d93025;'>दर्ता असफल: " + err.message + "</span>";
+    }
+  }
+
+  async function markAttendance() {
+    const staffId = document.getElementById('staffId').value.trim();
+    const msg = document.getElementById('msg');
+
+    if (!staffId) {
+      msg.innerHTML = "<span style='color:#d93025;'>कृपया आफ्नो Staff ID लेख्नुहोस्!</span>";
+      return;
+    }
+
+    try {
+      msg.innerHTML = "<span style='color:#1a73e8;'>हाजिरका लागि बायोमेट्रिक छुनुहोस्...</span>";
+
+      const publicKeyCredentialRequestOptions = {
+        challenge: Uint8Array.from("attendance_sec_challenge", c => c.charCodeAt(0)),
+        timeout: 60000
+      };
+
+      const assertion = await navigator.credentials.get({ publicKey: publicKeyCredentialRequestOptions });
+      const credentialId = bufferToBase64(assertion.rawId);
+
+      msg.innerHTML = "<span style='color:#1a73e8;'>स्थान प्राप्त गरिँदैछ...</span>";
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const loc = pos.coords.latitude + "," + pos.coords.longitude;
+            await sendAttendance(staffId, credentialId, loc);
+          },
+          async () => {
+            await sendAttendance(staffId, credentialId, "Location Disabled");
+          },
+          { timeout: 5000 }
+        );
+      } else {
+        await sendAttendance(staffId, credentialId, "Location Not Supported");
+      }
+
+    } catch (err) {
+      msg.innerHTML = "<span style='color:#d93025;'>प्रमाणीकरण अस्वीकृत! (" + err.message + ")</span>";
+    }
+  }
+
+  async function sendAttendance(staffId, credentialId, loc) {
+    const msg = document.getElementById('msg');
+    msg.innerHTML = "<span style='color:#1a73e8;'>हाजिर सेभ हुँदैछ...</span>";
+    
+    const response = await postToBackend({ action: "attendance", staffId: staffId, credentialId: credentialId, location: loc });
+    
+    if (response.status === "success") {
+      msg.innerHTML = "<span style='color:#188038;'>" + response.message + "</span>";
+    } else {
+      msg.innerHTML = "<span style='color:#d93025;'>" + response.message + "</span>";
+    }
+  }
+</script>
+ 
+</body>
+</html>
