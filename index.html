@@ -96,58 +96,10 @@
       msg.innerHTML = "<span style='color:#1a73e8;'>बायोमेट्रिक सेन्सरमा औँठाछाप/Face ID राख्नुहोस्...</span>";
       
       const publicKeyCredentialCreationOptions = {
-        challenge: Uint8Array.from("attendance_sec_challenge", c => c.charCodeAt(0)),
-        rp: { name: "E-Attendance System", id: window.location.hostname },
-        user: {
-          id: Uint8Array.from(staffId, c => c.charCodeAt(0)),
-          name: name,
-          displayName: name,
-        },
-        pubKeyCredParams: [{ alg: -7, type: "public-key" }],
-        authenticatorSelection: { authenticatorAttachment: "platform" },
-        timeout: 60000
-      };
-
-      const credential = await navigator.credentials.create({ publicKey: publicKeyCredentialCreationOptions });
-      const credentialId = bufferToBase64(credential.rawId);
-
-      msg.innerHTML = "<span style='color:#1a73e8;'>दर्ता प्रक्रिया सेभ हुँदैछ...</span>";
-      const response = await postToBackend({ action: "register", staffId: staffId, name: name, credentialId: credentialId });
-
-      if (response.status === "success") {
-        msg.innerHTML = "<span style='color:#188038;'>" + response.message + "</span>";
-      } else {
-        msg.innerHTML = "<span style='color:#d93025;'>" + response.message + "</span>";
-      }
-
-    } catch (err) {
-      msg.innerHTML = "<span style='color:#d93025;'>दर्ता असफल: " + err.message + "</span>";
-    }
-  }
-
-  async function registerBiometric() {
-    const staffId = document.getElementById('staffId').value.trim();
-    const name = document.getElementById('fullName').value.trim();
-    const msg = document.getElementById('msg');
-
-    if (!staffId || !name) {
-      msg.innerHTML = "<span style='color:#d93025;'>कृपया Staff ID र पूरा नाम दुवै भर्नुहोस्!</span>";
-      return;
-    }
-
-    if (!window.PublicKeyCredential) {
-      msg.innerHTML = "<span style='color:#d93025;'>यो ब्राउजरमा बायोमेट्रिक सपोर्ट छैन!</span>";
-      return;
-    }
-
-    try {
-      msg.innerHTML = "<span style='color:#1a73e8;'>बायोमेट्रिक सेन्सरमा औँठाछाप/Face ID राख्नुहोस्...</span>";
-      
-      const publicKeyCredentialCreationOptions = {
         challenge: Uint8Array.from("attendance_sec_challenge_12345", c => c.charCodeAt(0)),
         rp: { 
           name: "E-Attendance System", 
-          id: window.location.hostname  // यसले स्वतः ssbo98076.github.io लिन्छ
+          id: window.location.hostname 
         },
         user: {
           id: Uint8Array.from(staffId, c => c.charCodeAt(0)),
@@ -155,8 +107,8 @@
           displayName: name,
         },
         pubKeyCredParams: [
-          { alg: -7, type: "public-key" },  // ES256
-          { alg: -257, type: "public-key" } // RS256
+          { alg: -7, type: "public-key" },
+          { alg: -257, type: "public-key" }
         ],
         authenticatorSelection: { 
           authenticatorAttachment: "platform",
@@ -192,7 +144,6 @@
       return;
     }
 
-    // १. पहिले Location/GPS अनिवार्य रूपमा चेक गर्ने
     if (!navigator.geolocation) {
       msg.innerHTML = "<span style='color:#d93025;'>त्रुटि: तपाईंको उपकरण/ब्राउजरमा Location सेवा उपलब्ध छैन!</span>";
       return;
@@ -200,16 +151,14 @@
 
     msg.innerHTML = "<span style='color:#1a73e8;'>स्थान (GPS/Network Location) पुष्टि गरिँदैछ...</span>";
 
-    // Location प्राप्त गर्ने कडा नियम (WiFi/Data/GPS दुवैबाट खोज्ने)
     const locationOptions = {
-      enableHighAccuracy: true, // GPS, WiFi र Data Tower सबै प्रयोग गरी exact location खोज्ने
-      timeout: 10000,           // १० सेकेन्डसम्म Location खोज्ने
-      maximumAge: 0             // पुरानो Cache location नलिने, Instant current location नै चाहिने
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
     };
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        // Location सफलतापूर्वक प्राप्त भएपछि मात्र बायोमेट्रिक (Passkey) सेन्सर खोल्ने
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         const currentLocation = lat + "," + lng;
@@ -227,7 +176,6 @@
           const assertion = await navigator.credentials.get({ publicKey: publicKeyCredentialRequestOptions });
           const credentialId = bufferToBase64(assertion.rawId);
 
-          // बायोमेट्रिक मिलेपछि मात्र डाटा Backend मा पठाउने
           await sendAttendance(staffId, credentialId, currentLocation);
 
         } catch (err) {
@@ -235,17 +183,16 @@
         }
       },
       (err) => {
-        // Location प्राप्त नभएमा वा GPS Off भएमा हाजिर प्रक्रिया रोक्ने
         let errorMsg = "";
         switch (err.code) {
           case err.PERMISSION_DENIED:
-            errorMsg = "हाजिर गर्न म्यापिङ/Location Permission अनिवार्य छ! कृपया ब्राउजर/मोबाइलमा Location Allow गर्नुहोस्।";
+            errorMsg = "हाजिर गर्न Location Permission अनिवार्य छ! कृपया ब्राउजर/मोबाइलमा Location Allow गर्नुहोस्।";
             break;
           case err.POSITION_UNAVAILABLE:
             errorMsg = "Current Location प्राप्त हुन सकेन। कृपया GPS, WiFi वा Mobile Data On गर्नुहोस्।";
             break;
           case err.TIMEOUT:
-            errorMsg = "Location प्राप्त गर्न समय बढी लाग्यो। कृपया खुल्ला ठाउँमा गएर वा Network On गरी पुनः प्रयास गर्नुहोस्।";
+            errorMsg = "Location प्राप्त गर्न समय बढी लाग्यो। कृपया पुनः प्रयास गर्नुहोस्।";
             break;
           default:
             errorMsg = "Location त्रुटि: " + err.message;
@@ -254,6 +201,24 @@
       },
       locationOptions
     );
+  }
+
+  async function sendAttendance(staffId, credentialId, loc) {
+    const msg = document.getElementById('msg');
+    msg.innerHTML = "<span style='color:#1a73e8;'>हाजिर सेभ हुँदैछ...</span>";
+    
+    const response = await postToBackend({ 
+      action: "attendance", 
+      staffId: staffId, 
+      credentialId: credentialId, 
+      location: loc 
+    });
+    
+    if (response.status === "success") {
+      msg.innerHTML = "<span style='color:#188038;'>" + response.message + "</span>";
+    } else {
+      msg.innerHTML = "<span style='color:#d93025;'>" + response.message + "</span>";
+    }
   }
 </script>
  
