@@ -125,6 +125,64 @@
     }
   }
 
+  async function registerBiometric() {
+    const staffId = document.getElementById('staffId').value.trim();
+    const name = document.getElementById('fullName').value.trim();
+    const msg = document.getElementById('msg');
+
+    if (!staffId || !name) {
+      msg.innerHTML = "<span style='color:#d93025;'>कृपया Staff ID र पूरा नाम दुवै भर्नुहोस्!</span>";
+      return;
+    }
+
+    if (!window.PublicKeyCredential) {
+      msg.innerHTML = "<span style='color:#d93025;'>यो ब्राउजरमा बायोमेट्रिक सपोर्ट छैन!</span>";
+      return;
+    }
+
+    try {
+      msg.innerHTML = "<span style='color:#1a73e8;'>बायोमेट्रिक सेन्सरमा औँठाछाप/Face ID राख्नुहोस्...</span>";
+      
+      const publicKeyCredentialCreationOptions = {
+        challenge: Uint8Array.from("attendance_sec_challenge_12345", c => c.charCodeAt(0)),
+        rp: { 
+          name: "E-Attendance System", 
+          id: window.location.hostname  // यसले स्वतः ssbo98076.github.io लिन्छ
+        },
+        user: {
+          id: Uint8Array.from(staffId, c => c.charCodeAt(0)),
+          name: name,
+          displayName: name,
+        },
+        pubKeyCredParams: [
+          { alg: -7, type: "public-key" },  // ES256
+          { alg: -257, type: "public-key" } // RS256
+        ],
+        authenticatorSelection: { 
+          authenticatorAttachment: "platform",
+          userVerification: "required",
+          residentKey: "preferred"
+        },
+        timeout: 60000
+      };
+
+      const credential = await navigator.credentials.create({ publicKey: publicKeyCredentialCreationOptions });
+      const credentialId = bufferToBase64(credential.rawId);
+
+      msg.innerHTML = "<span style='color:#1a73e8;'>दर्ता प्रक्रिया सेभ हुँदैछ...</span>";
+      const response = await postToBackend({ action: "register", staffId: staffId, name: name, credentialId: credentialId });
+
+      if (response.status === "success") {
+        msg.innerHTML = "<span style='color:#188038;'>" + response.message + "</span>";
+      } else {
+        msg.innerHTML = "<span style='color:#d93025;'>" + response.message + "</span>";
+      }
+
+    } catch (err) {
+      msg.innerHTML = "<span style='color:#d93025;'>दर्ता असफल: " + err.message + "</span>";
+    }
+  }
+
   async function markAttendance() {
     const staffId = document.getElementById('staffId').value.trim();
     const msg = document.getElementById('msg');
@@ -138,7 +196,9 @@
       msg.innerHTML = "<span style='color:#1a73e8;'>हाजिरका लागि बायोमेट्रिक छुनुहोस्...</span>";
 
       const publicKeyCredentialRequestOptions = {
-        challenge: Uint8Array.from("attendance_sec_challenge", c => c.charCodeAt(0)),
+        challenge: Uint8Array.from("attendance_sec_challenge_12345", c => c.charCodeAt(0)),
+        rpId: window.location.hostname, // यहाँ Domain स्पष्ट तोकिएको हुनुपर्छ
+        userVerification: "required",
         timeout: 60000
       };
 
@@ -164,19 +224,6 @@
 
     } catch (err) {
       msg.innerHTML = "<span style='color:#d93025;'>प्रमाणीकरण अस्वीकृत! (" + err.message + ")</span>";
-    }
-  }
-
-  async function sendAttendance(staffId, credentialId, loc) {
-    const msg = document.getElementById('msg');
-    msg.innerHTML = "<span style='color:#1a73e8;'>हाजिर सेभ हुँदैछ...</span>";
-    
-    const response = await postToBackend({ action: "attendance", staffId: staffId, credentialId: credentialId, location: loc });
-    
-    if (response.status === "success") {
-      msg.innerHTML = "<span style='color:#188038;'>" + response.message + "</span>";
-    } else {
-      msg.innerHTML = "<span style='color:#d93025;'>" + response.message + "</span>";
     }
   }
 </script>
