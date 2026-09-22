@@ -1,411 +1,268 @@
 <!DOCTYPE html>
 <html lang="ne">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>eAttendance System</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        body {
-            background-color: #f4f7f6;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 15px;
-        }
-        .card {
-            background: #ffffff;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 420px;
-            text-align: center;
-        }
-        h2 {
-            color: #1a5f7a;
-            margin-bottom: 20px;
-            font-size: 22px;
-        }
-        .input-group {
-            margin-bottom: 15px;
-            text-align: left;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            color: #333;
-            font-weight: 600;
-            font-size: 14px;
-        }
-        input, select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            font-size: 15px;
-            outline: none;
-        }
-        .btn {
-            width: 100%;
-            padding: 13px;
-            margin-top: 10px;
-            border: none;
-            border-radius: 8px;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        .btn-attendance {
-            background-color: #2e7d32;
-            color: white;
-        }
-        .btn-attendance:hover { background-color: #1b5e20; }
-        .btn-register {
-            background-color: #0288d1;
-            color: white;
-        }
-        .btn-register:hover { background-color: #01579b; }
-        .btn-pin {
-            background-color: #7b1fa2;
-            color: white;
-        }
-        .btn-pin:hover { background-color: #4a148c; }
-        
-        .divider {
-            margin: 25px 0 15px 0;
-            border-top: 2px dashed #ddd;
-            position: relative;
-        }
-        .divider span {
-            position: absolute;
-            top: -12px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #fff;
-            padding: 0 10px;
-            font-size: 12px;
-            color: #777;
-        }
-        #status {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 14px;
-            display: none;
-            word-break: break-word;
-        }
-        .status-success { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
-        .status-error { background-color: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
-        .status-info { background-color: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
-        .admin-box {
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid #e0e0e0;
-            margin-top: 10px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>हाजिरी प्रणाली</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { padding: 15px; background: #f1f5f9; text-align: center; margin: 0; }
+    .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); max-width: 420px; margin: 20px auto; }
+    h2 { color: #0f172a; margin-bottom: 20px; font-size: 22px; }
+    label { display: block; text-align: left; font-size: 13px; font-weight: bold; color: #475569; margin-top: 10px; margin-bottom: 4px; }
+    input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 15px; outline: none; }
+    button { width: 100%; padding: 14px; margin-top: 12px; border-radius: 8px; border: none; background: #2563eb; color: white; font-size: 15px; font-weight: bold; cursor: pointer; }
+    .btn-attend { background: #10b981; font-size: 18px; padding: 16px; margin-top: 15px; }
+    .btn-reset-trigger { background: #ef4444; font-size: 13px; padding: 10px; margin-top: 20px; }
+    .btn-reset-cancel { background: #64748b; margin-top: 5px; }
+    .status { margin-top: 15px; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 14px; text-align: left; word-break: break-word; }
+    .success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    .error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .info { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
+    .hidden { display: none; }
+    .badge { background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: #334155; }
+    .user-info { text-align: left; background: #f8fafc; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; }
+    .reset-box { background: #fff5f5; border: 1px solid #fca5a5; border-radius: 12px; padding: 15px; margin-top: 15px; text-align: left; }
+  </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>e-Attendance System</h2>
+  <h2>🔒 हाजिरी प्रणाली</h2>
+
+  <!-- Step 1: First Time Setup -->
+  <div id="loginForm">
+    <h4 style="margin: 0 0 10px 0; color: #334155;">प्रथम पटक डिभाइस सेटअप</h4>
     
-    <!-- १. हाजिरी क्षेत्र (Attendance) -->
-    <div class="input-group">
-        <label for="staffId">Staff ID:</label>
-        <input type="text" id="staffId" placeholder="उदा. 101" required>
+    <label>एडमिन संकेत नम्बर (Admin ID):</label>
+    <input type="text" id="adminId" placeholder="उदा: 101">
+
+    <label>एडमिन पासवर्ड (Admin Password):</label>
+    <input type="password" id="adminPassword" placeholder="एडमिनको पासवर्ड">
+
+    <hr style="border:0; border-top:1px dashed #cbd5e1; margin: 15px 0;">
+
+    <label>कर्मचारी संकेत नम्बर (Employee ID):</label>
+    <input type="text" id="employeeId" placeholder="उदा: 102">
+
+    <button onclick="verifyAndSetup()">डिभाइस प्रमाणीकरण र सेटअप</button>
+  </div>
+
+  <!-- Step 2: Dashboard -->
+  <div id="dashboard" class="hidden">
+    <div class="user-info">
+      <p><b>कर्मचारी:</b> <span id="empName"></span></p>
+      <p><b>संकेत नम्बर:</b> <span id="empId" class="badge"></span></p>
+      <p><b>पद:</b> <span id="empDesig"></span></p>
+      <p><b>प्रकार:</b> <span id="empType"></span></p>
     </div>
 
-    <button id="attBtn" class="btn btn-attendance" onclick="handleAttendance()">हाजिरी गर्नुहोस् (Attendance)</button>
+    <button class="btn-attend" onclick="triggerAttendance()">👆 हाजिरी गर्नुहोस् (Fingerprint Scan)</button>
 
-    <!-- २. दर्ता र Admin Area (Bottom Section) -->
-    <div class="divider"><span>ADMIN & REGISTRATION</span></div>
+    <button class="btn-reset-trigger" onclick="openResetModal()">🔄 डिभाइस रिसेट / अर्को कर्मचारी सेटअप</button>
 
-    <div class="admin-box">
-        <div class="input-group">
-            <label for="newStaffName">Full Name (नयाँ कर्मचारीको नाम):</label>
-            <input type="text" id="newStaffName" placeholder="उदा. Dilip Das">
-        </div>
+    <!-- Admin Verification Box for Reset -->
+    <div id="resetSection" class="reset-box hidden">
+      <h4 style="margin:0 0 8px 0; color:#991b1b;">🔒 एडमिन प्रमाणीकरण आवश्यक</h4>
+      
+      <label>एडमिन ID:</label>
+      <input type="text" id="resetAdminId" placeholder="उदा: 101">
 
-        <div class="input-group">
-            <label for="userType">User Role (पद):</label>
-            <select id="userType">
-                <option value="client">Staff (client)</option>
-                <option value="admin">Admin</option>
-                <option value="superadmin">Superadmin</option>
-            </select>
-        </div>
+      <label>एडमिन पासवर्ड:</label>
+      <input type="password" id="resetAdminPassword" placeholder="एडमिन पासवर्ड">
 
-        <button id="regBtn" class="btn btn-register" onclick="handleRegisterWithPin()">नयाँ प्रयोगकर्ता दर्ता गर्नुहोस् (Register)</button>
-        
-        <!-- PIN Setup Button -->
-        <button id="pinBtn" class="btn btn-pin" onclick="handlePinSetup()">🔑 PIN Setup (५ मिनेटको अस्थायी PIN - Admin Only)</button>
+      <button onclick="executeReset()" style="background:#dc2626;">पुष्टि गरी रिसेट गर्नुहोस्</button>
+      <button onclick="closeResetModal()" class="btn-reset-cancel">रद्द गर्नुहोस्</button>
     </div>
+  </div>
 
-    <div id="status"></div>
+  <div id="statusBox" class="status hidden"></div>
 </div>
 
 <script>
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwm08541CQ2dZqgvsuMT7jiHUhVkPBAYVFAP0yIgJXF6GDF0PbazTJOoL7noPRBFW4C/exec";
+  // ⚠️ यहाँ आफ्नो Google Apps Script को Web App URL राख्नुहोस्
+  const GAS_API_URL = "https://script.google.com/macros/s/YOUR_EXEC_URL_HERE/exec";
 
-    function bufferToBase64(buffer) {
-        return btoa(String.fromCharCode(...new Uint8Array(buffer)))
-            .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  window.onload = function() {
+    const savedUser = localStorage.getItem("emp_user");
+    const savedToken = localStorage.getItem("device_token");
+    if (savedUser && savedToken) {
+      showDashboard(JSON.parse(savedUser));
+    }
+  };
+
+  async function postToGAS(payload) {
+    const res = await fetch(GAS_API_URL, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    return await res.json();
+  }
+
+  // १. डिभाइस सेटअप
+  async function verifyAndSetup() {
+    const adminId = document.getElementById("adminId").value.trim();
+    const adminPassword = document.getElementById("adminPassword").value.trim();
+    const employeeId = document.getElementById("employeeId").value.trim();
+
+    if (!adminId || !adminPassword || !employeeId) {
+      showStatus("सबै विवरण प्रविष्ट गर्नुहोस्!", "error");
+      return;
     }
 
-    function base64ToBuffer(base64) {
-        var pad = '='.repeat((4 - base64.length % 4) % 4);
-        var base64Clean = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
-        var rawData = window.atob(base64Clean);
-        var buffer = new Uint8Array(rawData.length);
-        for (var i = 0; i < rawData.length; ++i) { buffer[i] = rawData.charCodeAt(i); }
-        return buffer.buffer;
+    showStatus("एडमिन प्रमाणीकरण हुँदैछ...", "info");
+
+    try {
+      const res = await postToGAS({ action: "verify_user", adminId, adminPassword, employeeId });
+      if (res.status === "success") {
+        localStorage.setItem("emp_user", JSON.stringify(res.employee));
+        localStorage.setItem("device_token", res.deviceToken);
+        showDashboard(res.employee);
+        showStatus("डिभाइस सेटअप सफल भयो!", "success");
+      } else {
+        showStatus(res.message, "error");
+      }
+    } catch (e) {
+      showStatus("कनेक्सन त्रुटि: " + e.message, "error");
+    }
+  }
+
+  function showDashboard(emp) {
+    document.getElementById("loginForm").classList.add("hidden");
+    document.getElementById("dashboard").classList.remove("hidden");
+
+    document.getElementById("empName").innerText = emp.name;
+    document.getElementById("empId").innerText = emp.uniqueId;
+    document.getElementById("empDesig").innerText = emp.designation;
+    document.getElementById("empType").innerText = emp.empType;
+  }
+
+  // २. अनिवार्य फिंगरप्रिन्ट/बायोमेट्रिक स्क्यान + हाजिरी
+  async function triggerAttendance() {
+    const emp = JSON.parse(localStorage.getItem("emp_user"));
+    const deviceToken = localStorage.getItem("device_token");
+
+    if (!emp || !deviceToken) {
+      showStatus("डिभाइस सेटअप गरिएको छैन!", "error");
+      return;
     }
 
-    function showStatus(message, type) {
-        const statusDiv = document.getElementById("status");
-        statusDiv.style.display = "block";
-        statusDiv.className = "";
-        statusDiv.classList.add("status-" + type);
-        statusDiv.innerText = message;
+    showStatus("कृपया फिंगरप्रिन्ट / बायोमेट्रिक स्क्यान गर्नुहोस्...", "info");
+
+    // Native Biometric / WebAuthn Call
+    try {
+      await performNativeBiometricScan(emp);
+    } catch (err) {
+      showStatus("अस्वीकृत: फिंगरप्रिन्ट प्रमाणीकरण रद्द गरियो वा असफल भयो!", "error");
+      return;
     }
 
-    function setLoading(loading) {
-        document.getElementById("regBtn").disabled = loading;
-        document.getElementById("attBtn").disabled = loading;
-        document.getElementById("pinBtn").disabled = loading;
-    }
+    showStatus("स्थान (GPS Location) पत्ता लगाइँदैछ...", "info");
 
-    function getCurrentLocation() {
-        return new Promise((resolve) => {
-            if (!navigator.geolocation) {
-                resolve("");
-            } else {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => resolve(pos.coords.latitude + "," + pos.coords.longitude),
-                    () => resolve(""),
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                );
-            }
-        });
-    }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const timestamp = new Date().getTime();
 
-    // ==========================================
-    // १. हाजिरी गर्ने (ATTENDANCE)
-    // ==========================================
-    async function handleAttendance() {
-        const staffId = document.getElementById("staffId").value.trim();
+        const rawMessage = emp.uniqueId + ":" + timestamp + ":" + lat + ":" + lng;
+        const signature = CryptoJS.HmacSHA256(rawMessage, deviceToken).toString(CryptoJS.enc.Hex);
 
-        if (!staffId) {
-            showStatus("कृपया Staff ID हाल्नुहोस्!", "error");
-            return;
-        }
+        showStatus("हाजिरी पठाउँदैछ...", "info");
 
         try {
-            setLoading(true);
-            showStatus("स्थान (GPS Location) र Challenge लिइँदैछ...", "info");
+          const res = await postToGAS({
+            action: "attendance",
+            uniqueId: emp.uniqueId,
+            timestamp: timestamp,
+            lat: lat,
+            lng: lng,
+            signature: signature
+          });
 
-            const [locationStr, chalRes] = await Promise.all([
-                getCurrentLocation(),
-                fetch(WEB_APP_URL, {
-                    method: "POST",
-                    body: JSON.stringify({ action: "get_challenge", staffId: staffId })
-                }).then(r => r.json())
-            ]);
-
-            if (chalRes.status !== "success") {
-                showStatus(chalRes.message, "error");
-                setLoading(false);
-                return;
-            }
-
-            showStatus("कृपया हाजिरीका लागि बायोमेट्रिक (Fingerprint/Face ID) दिनुहोस्...", "info");
-
-            const getPublicKeyOptions = {
-                challenge: base64ToBuffer(chalRes.challenge),
-                userVerification: "required",
-                timeout: 60000
-            };
-
-            if (chalRes.credentialId) {
-                getPublicKeyOptions.allowCredentials = [{ id: base64ToBuffer(chalRes.credentialId), type: 'public-key' }];
-            }
-
-            const assertion = await navigator.credentials.get({ publicKey: getPublicKeyOptions });
-
-            showStatus("प्रमाणीकरण हुँदैछ, कृपया पर्खनुहोस्...", "info");
-
-            const attRes = await fetch(WEB_APP_URL, {
-                method: "POST",
-                body: JSON.stringify({
-                    action: "attendance",
-                    staffId: staffId,
-                    credentialId: bufferToBase64(assertion.rawId),
-                    location: locationStr
-                })
-            }).then(r => r.json());
-
-            if (attRes.status === "success") {
-                showStatus(attRes.message, "success");
-            } else {
-                showStatus(attRes.message, "error");
-            }
-
-        } catch (err) {
-            showStatus("हाजिरी अस्वीकृत: " + err.message, "error");
-        } finally {
-            setLoading(false);
+          if (res.status === "success") {
+            showStatus(res.message, "success");
+          } else {
+            showStatus(res.message, "error");
+          }
+        } catch (e) {
+          showStatus("हाजिरी पठाउन सकिएन: " + e.message, "error");
         }
+      },
+      (err) => {
+        showStatus("GPS Location अन गर्नुहोस् र पुनः प्रयास गर्नुहोस्।", "error");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  // GitHub Pages मा सोझै चल्ने फिंगरप्रिन्ट (WebAuthn) स्क्यानर
+  async function performNativeBiometricScan(emp) {
+    if (!window.PublicKeyCredential) {
+      throw new Error("बायोमेट्रिक सपोर्ट भएन");
     }
 
-    // ==========================================
-    // २. Admin को मोबाइलबाट ५ मिनेटको PIN Setup गर्ने
-    // ==========================================
-    async function handlePinSetup() {
-        const adminStaffId = prompt("Admin / Superadmin को Staff ID हाल्नुहोस्:");
-        if (!adminStaffId) return;
+    const challenge = new Uint8Array(32);
+    window.crypto.getRandomValues(challenge);
 
-        const newPin = prompt("५ मिनेटका लागि अस्थायी Admin PIN (उदा. 7856) सेट गर्नुहोस्:");
-        if (!newPin || newPin.trim().length < 4) {
-            showStatus("कृपया कम्तीमा ४ अंकको PIN हाल्नुहोस्!", "error");
-            return;
-        }
+    // मोबाइलको Native Fingerprint / Pattern / Face Unlock मागिन्छ
+    await navigator.credentials.get({
+      publicKey: {
+        challenge: challenge,
+        timeout: 60000,
+        userVerification: "required"
+      }
+    });
+  }
 
-        try {
-            setLoading(true);
-            showStatus("Admin को बायोमेट्रिक प्रमाणीकरण मागिँदैछ...", "info");
+  // ३. डिभाइस रिसेट फसनहरू
+  function openResetModal() {
+    document.getElementById("resetSection").classList.remove("hidden");
+  }
 
-            const adminChalRes = await fetch(WEB_APP_URL, {
-                method: "POST",
-                body: JSON.stringify({ action: "get_challenge", staffId: adminStaffId })
-            }).then(r => r.json());
+  function closeResetModal() {
+    document.getElementById("resetSection").classList.add("hidden");
+    document.getElementById("resetAdminId").value = "";
+    document.getElementById("resetAdminPassword").value = "";
+  }
 
-            if (adminChalRes.status !== "success") {
-                showStatus("Admin Staff ID फेला परेन!", "error");
-                setLoading(false);
-                return;
-            }
+  async function executeReset() {
+    const adminId = document.getElementById("resetAdminId").value.trim();
+    const adminPassword = document.getElementById("resetAdminPassword").value.trim();
 
-            const adminOptions = {
-                challenge: base64ToBuffer(adminChalRes.challenge),
-                userVerification: "required",
-                timeout: 60000
-            };
-            if (adminChalRes.credentialId) {
-                adminOptions.allowCredentials = [{ id: base64ToBuffer(adminChalRes.credentialId), type: 'public-key' }];
-            }
-
-            const adminAssertion = await navigator.credentials.get({ publicKey: adminOptions });
-            const adminCredId = bufferToBase64(adminAssertion.rawId);
-
-            showStatus("PIN सुरक्षित गरिँदैछ...", "info");
-
-            const pinRes = await fetch(WEB_APP_URL, {
-                method: "POST",
-                body: JSON.stringify({
-                    action: "set_admin_pin",
-                    adminStaffId: adminStaffId,
-                    adminCredId: adminCredId,
-                    newPin: newPin.trim()
-                })
-            }).then(r => r.json());
-
-            if (pinRes.status === "success") {
-                showStatus(pinRes.message, "success");
-            } else {
-                showStatus(pinRes.message, "error");
-            }
-
-        } catch (err) {
-            showStatus("PIN Setup रद्द गरियो: " + err.message, "error");
-        } finally {
-            setLoading(false);
-        }
+    if (!adminId || !adminPassword) {
+      showStatus("एडमिन ID र पासवर्ड प्रविष्ट गर्नुहोस्!", "error");
+      return;
     }
 
-    // ==========================================
-    // ३. नयाँ कर्मचारी दर्ता (PIN हालिसकेपछि मात्र सम्भव)
-    // ==========================================
-    async function handleRegisterWithPin() {
-        const targetStaffId = document.getElementById("staffId").value.trim();
-        const targetStaffName = document.getElementById("newStaffName").value.trim();
-        const selectedRole = document.getElementById("userType").value;
+    showStatus("जाँच हुँदैछ...", "info");
 
-        if (!targetStaffId || !targetStaffName) {
-            showStatus("कृपया Staff ID र Full Name दुवै भर्नुहोस्!", "error");
-            return;
-        }
+    try {
+      const res = await postToGAS({ action: "verify_admin", adminId, adminPassword });
+      if (res.status === "success") {
+        localStorage.removeItem("emp_user");
+        localStorage.removeItem("device_token");
 
-        const inputPin = prompt("दर्ता गर्न Admin ले सेट गरेको ५ मिनेटको PIN हाल्नुहोस्:");
-        if (!inputPin) {
-            showStatus("दर्ता रद्द गरियो।", "error");
-            return;
-        }
+        closeResetModal();
+        document.getElementById("dashboard").classList.add("hidden");
+        document.getElementById("loginForm").classList.remove("hidden");
 
-        try {
-            setLoading(true);
-            showStatus("नयाँ कर्मचारीको बायोमेट्रिक स्क्यान गरिँदैछ...", "info");
-
-            const newChalRes = await fetch(WEB_APP_URL, {
-                method: "POST",
-                body: JSON.stringify({ action: "get_challenge", staffId: targetStaffId })
-            }).then(r => r.json());
-
-            const newCredential = await navigator.credentials.create({
-                publicKey: {
-                    challenge: base64ToBuffer(newChalRes.challenge),
-                    rp: { name: "eAttendance System" },
-                    user: {
-                        id: Uint8Array.from(targetStaffId, c => c.charCodeAt(0)),
-                        name: targetStaffName,
-                        displayName: targetStaffName
-                    },
-                    pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
-                    authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
-                    timeout: 60000
-                }
-            });
-
-            const newRawId = bufferToBase64(newCredential.rawId);
-            const pubKey = bufferToBase64(newCredential.response.getPublicKey ? newCredential.response.getPublicKey() : new ArrayBuffer(0));
-
-            showStatus("डाटा Backend मा सेभ गरिँदैछ...", "info");
-
-            const regRes = await fetch(WEB_APP_URL, {
-                method: "POST",
-                body: JSON.stringify({
-                    action: "register",
-                    staffId: targetStaffId,
-                    name: targetStaffName,
-                    credentialId: newRawId,
-                    publicKey: pubKey,
-                    userType: selectedRole,
-                    adminPin: inputPin.trim()
-                })
-            }).then(r => r.json());
-
-            if (regRes.status === "success") {
-                showStatus(regRes.message, "success");
-            } else {
-                showStatus(regRes.message, "error");
-            }
-
-        } catch (err) {
-            showStatus("दर्ता रद्द गरियो वा त्रुटि भयो: " + err.message, "error");
-        } finally {
-            setLoading(false);
-        }
+        showStatus("डिभाइस रिसेट भयो। अब अर्को कर्मचारी सेटअप गर्न सक्नुहुन्छ।", "success");
+      } else {
+        showStatus(res.message, "error");
+      }
+    } catch (e) {
+      showStatus("कनेक्सन त्रुटि: " + e.message, "error");
     }
+  }
+
+  function showStatus(msg, type) {
+    const box = document.getElementById("statusBox");
+    box.innerText = msg;
+    box.className = "status " + type;
+    box.classList.remove("hidden");
+  }
 </script>
-
 </body>
 </html>
