@@ -12,7 +12,9 @@
     h2 { color: #0f172a; margin-bottom: 20px; font-size: 22px; }
     label { display: block; text-align: left; font-size: 13px; font-weight: bold; color: #475569; margin-top: 10px; margin-bottom: 4px; }
     input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 15px; outline: none; }
-    button { width: 100%; padding: 14px; margin-top: 12px; border-radius: 8px; border: none; background: #2563eb; color: white; font-size: 15px; font-weight: bold; cursor: pointer; }
+    input:focus { border-color: #2563eb; }
+    button { width: 100%; padding: 14px; margin-top: 12px; border-radius: 8px; border: none; background: #2563eb; color: white; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    button:active { transform: scale(0.98); opacity: 0.9; }
     .btn-attend { background: #10b981; font-size: 18px; padding: 16px; margin-top: 15px; }
     .btn-reset-trigger { background: #ef4444; font-size: 13px; padding: 10px; margin-top: 20px; }
     .btn-reset-cancel { background: #64748b; margin-top: 5px; }
@@ -23,6 +25,7 @@
     .hidden { display: none; }
     .badge { background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: #334155; }
     .user-info { text-align: left; background: #f8fafc; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; }
+    .user-info p { margin: 6px 0; font-size: 14px; color: #334155; }
     .reset-box { background: #fff5f5; border: 1px solid #fca5a5; border-radius: 12px; padding: 15px; margin-top: 15px; text-align: left; }
   </style>
 </head>
@@ -31,7 +34,7 @@
 <div class="card">
   <h2>🔒 हाजिरी प्रणाली</h2>
 
-  <!-- Step 1: First Time Setup -->
+  <!-- Step 1: First Time Setup Form -->
   <div id="loginForm">
     <h4 style="margin: 0 0 10px 0; color: #334155;">प्रथम पटक डिभाइस सेटअप</h4>
     
@@ -49,7 +52,7 @@
     <button onclick="verifyAndSetup()">डिभाइस प्रमाणीकरण र सेटअप</button>
   </div>
 
-  <!-- Step 2: Dashboard -->
+  <!-- Step 2: Attendance Dashboard -->
   <div id="dashboard" class="hidden">
     <div class="user-info">
       <p><b>कर्मचारी:</b> <span id="empName"></span></p>
@@ -81,6 +84,7 @@
 </div>
 
 <script>
+  // Google Apps Script को Web App URL
   const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx8a6ihAKb7Vs8uJUxDFZC-AthxebL1vwLSvPcKHtrchcuqHW9F8kfWtTzhCtY2leLO/exec";
 
   window.onload = function() {
@@ -91,17 +95,26 @@
     }
   };
 
-  // CORS समस्या नआओस् भन्नका लागि text/plain header प्रयोग गरिएको छ
+  // सर्भरमा सुरक्षित अनुरोध (CORS Safe & 8s Timeout Control)
   async function postToGAS(payload) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // ८ सेकेन्ड टाइमआउट
+
     try {
       const res = await fetch(GAS_API_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
+        signal: controller.signal,
         body: JSON.stringify(payload)
       });
+
+      clearTimeout(timeoutId);
       return await res.json();
     } catch (e) {
-      throw new Error("सर्भरमा सम्पर्क हुन सकेन। (Google Apps Script Deployment जाँच गर्नुहोस्)");
+      if (e.name === 'AbortError') {
+        throw new Error("सर्भरबाट ८ सेकेन्डसम्म कुनै प्रतिक्रिया आएन (Time Out)। पुनः प्रयास गर्नुहोस्!");
+      }
+      throw new Error("सर्भरमा सम्पर्क हुन सकेन। (Google Apps Script Deployment र इन्टरनेट जाँच गर्नुहोस्)");
     }
   }
 
@@ -119,7 +132,7 @@
     showStatus("प्रमाणीकरण हुँदैछ...", "info");
 
     try {
-      const res = await postToGAS({ action: "verify_user", adminId, adminPassword, employeeId });
+      const res = await postToGAS({ action: "verify_user", adminId, adminPassword, employeeId, forceReset: true });
       if (res.status === "success") {
         showStatus("कृपया डिभाइसको Face ID / Touch ID दर्ता गर्नुहोस्...", "info");
         const credId = await createLocalBiometricKey(res.employee);
@@ -140,7 +153,7 @@
     }
   }
 
-  // स्थानीय बायोमेट्रिक साँचो दर्ता गर्ने फसन
+  // स्थानीय बायोमेट्रिक साँचो दर्ता गर्ने फसन (Platform Authenticator)
   async function createLocalBiometricKey(emp) {
     if (!window.PublicKeyCredential) return null;
     try {
@@ -158,7 +171,7 @@
           },
           pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
           authenticatorSelection: {
-            authenticatorAttachment: "platform",
+            authenticatorAttachment: "platform", // आफ्नै फोनको बायोमेट्रिक मात्र प्रयोग गर्ने
             userVerification: "required"
           },
           timeout: 60000
@@ -182,7 +195,7 @@
     document.getElementById("empType").innerText = emp.empType;
   }
 
-  // २. हाजिरी गर्दा बायोमेट्रिक स्क्यान
+  // २. हाजिरी गर्दा अनिवार्य बायोमेट्रिक + GPS + HMAC Signature
   async function triggerAttendance() {
     const emp = JSON.parse(localStorage.getItem("emp_user"));
     const deviceToken = localStorage.getItem("device_token");
@@ -209,6 +222,7 @@
         const lng = pos.coords.longitude;
         const timestamp = new Date().getTime();
 
+        // HMAC-SHA256 डिजिटल हस्ताक्षर
         const rawMessage = emp.uniqueId + ":" + timestamp + ":" + lat + ":" + lng;
         const signature = CryptoJS.HmacSHA256(rawMessage, deviceToken).toString(CryptoJS.enc.Hex);
 
@@ -240,7 +254,7 @@
     );
   }
 
-  // कडा बायोमेट्रिक स्क्यान फसन
+  // कडा (Strict) बायोमेट्रिक प्रमाणीकरण फसन
   async function performNativeBiometricScan() {
     if (!window.PublicKeyCredential) {
       throw new Error("यो डिभाइस/ब्राउजरमा बायोमेट्रिक सेक्युरिटी सपोर्ट गर्दैन।");
@@ -249,7 +263,7 @@
     const isPlatformAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
     
     if (!isPlatformAvailable) {
-      throw new Error("अस्वीकृत: यो डिभाइसमा फिंगरप्रिन्ट / Face ID / Screen Lock सेट गरिएको छैन।");
+      throw new Error("अस्वीकृत: यो डिभाइसमा फिंगरप्रिन्ट / Face ID / Screen Lock सेट गरिएको छैन। बायोमेट्रिक बिना हाजिरी गर्न पाइँदैन!");
     }
 
     const challenge = new Uint8Array(32);
@@ -273,7 +287,7 @@
     await navigator.credentials.get({ publicKey: options });
   }
 
-  // ३. डिभाइस रिसेट फसनहरू
+  // ३. डिभाइस रिसेट फसनहरू (Admin Auth Required)
   function openResetModal() {
     document.getElementById("resetSection").classList.remove("hidden");
   }
@@ -305,6 +319,10 @@
         closeResetModal();
         document.getElementById("dashboard").classList.add("hidden");
         document.getElementById("loginForm").classList.remove("hidden");
+
+        document.getElementById("adminId").value = "";
+        document.getElementById("adminPassword").value = "";
+        document.getElementById("employeeId").value = "";
 
         showStatus("डिभाइस रिसेट भयो। अब पुनः १st सेटअप गर्नुहोस्।", "success");
       } else {
