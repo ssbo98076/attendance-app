@@ -171,10 +171,10 @@
           },
           pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
           authenticatorSelection: {
-            authenticatorAttachment: "platform", // आफ्नै फोनको बायोमेट्रिक मात्र प्रयोग गर्ने
+            authenticatorAttachment: "platform",
             userVerification: "required"
           },
-          timeout: 60000
+          timeout: 20000
         }
       });
 
@@ -254,7 +254,7 @@
     );
   }
 
-  // कडा (Strict) बायोमेट्रिक प्रमाणीकरण फसन
+  // कडा (Strict) र छिटो (Fast Timeout) बायोमेट्रिक प्रमाणीकरण फसन
   async function performNativeBiometricScan() {
     if (!window.PublicKeyCredential) {
       throw new Error("यो डिभाइस/ब्राउजरमा बायोमेट्रिक सेक्युरिटी सपोर्ट गर्दैन।");
@@ -272,19 +272,34 @@
     const savedCredId = localStorage.getItem("cred_id");
     const options = {
       challenge: challenge,
-      timeout: 60000,
+      timeout: 15000, // १५ सेकेन्ड भित्र स्क्यान नगरेमा रद्द हुने (अड्किँदैन)
       userVerification: "required"
     };
 
     if (savedCredId) {
-      const rawId = Uint8Array.from(atob(savedCredId), c => c.charCodeAt(0));
-      options.allowCredentials = [{
-        id: rawId,
-        type: 'public-key'
-      }];
+      try {
+        const rawId = Uint8Array.from(atob(savedCredId), c => c.charCodeAt(0));
+        options.allowCredentials = [{
+          id: rawId,
+          type: 'public-key',
+          transports: ['internal'] // केवल फोनको आफ्नै बायोमेट्रिक मात्र खोज्ने
+        }];
+      } catch (e) {
+        console.warn("Invalid cred_id", e);
+      }
     }
 
-    await navigator.credentials.get({ publicKey: options });
+    try {
+      await navigator.credentials.get({ publicKey: options });
+    } catch (e) {
+      // यदि savedCredId अमान्य भएर वा साँचो फेला नपरेर अड्किन खोज्यो भने
+      if (options.allowCredentials) {
+        delete options.allowCredentials;
+        await navigator.credentials.get({ publicKey: options });
+      } else {
+        throw e;
+      }
+    }
   }
 
   // ३. डिभाइस रिसेट फसनहरू (Admin Auth Required)
