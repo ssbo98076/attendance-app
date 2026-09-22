@@ -58,7 +58,7 @@
       <p><b>प्रकार:</b> <span id="empType"></span></p>
     </div>
 
-    <button class="btn-attend" onclick="triggerAttendance()">👆 हाजिरी गर्नुहोस् (Fingerprint Scan)</button>
+    <button class="btn-attend" onclick="triggerAttendance()">👆 हाजिरी गर्नुहोस् (Face ID / Fingerprint)</button>
 
     <button class="btn-reset-trigger" onclick="openResetModal()">🔄 डिभाइस रिसेट / अर्को कर्मचारी सेटअप</button>
 
@@ -81,8 +81,8 @@
 </div>
 
 <script>
-  // ⚠️ यहाँ आफ्नो Google Apps Script को Web App URL राख्नुहोस्
-  const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx8a6ihAKb7Vs8uJUxDFZC-AthxebL1vwLSvPcKHtrchcuqHW9F8kfWtTzhCtY2leLO/exec";
+  // ⚠️ आफ्नो Apps Script को Web App URL यहाँ सुनिश्चित गर्नुहोस्
+  const GAS_API_URL = "https://script.google.com/macros/s/YOUR_EXEC_URL_HERE/exec";
 
   window.onload = function() {
     const savedUser = localStorage.getItem("emp_user");
@@ -100,7 +100,7 @@
     return await res.json();
   }
 
-  // १. डिभाइस सेटअप
+  // १. डिभाइस सेटअप र iOS/Android बायोमेट्रिक कुञ्जी सिर्जना
   async function verifyAndSetup() {
     const adminId = document.getElementById("adminId").value.trim();
     const adminPassword = document.getElementById("adminPassword").value.trim();
@@ -111,13 +111,22 @@
       return;
     }
 
-    showStatus("एडमिन प्रमाणीकरण हुँदैछ...", "info");
+    showStatus("प्रमाणीकरण हुँदैछ...", "info");
 
     try {
       const res = await postToGAS({ action: "verify_user", adminId, adminPassword, employeeId });
       if (res.status === "success") {
+        
+        // iPhone/Android को लागि Local Face ID / Fingerprint Key रजिस्टर गर्ने
+        showStatus("कृपया डिभाइसको Face ID / Touch ID दर्ता गर्नुहोस्...", "info");
+        const credId = await createLocalBiometricKey(res.employee);
+
         localStorage.setItem("emp_user", JSON.stringify(res.employee));
         localStorage.setItem("device_token", res.deviceToken);
+        if (credId) {
+          localStorage.setItem("cred_id", credId);
+        }
+
         showDashboard(res.employee);
         showStatus("डिभाइस सेटअप सफल भयो!", "success");
       } else {
@@ -125,6 +134,39 @@
       }
     } catch (e) {
       showStatus("कनेक्सन त्रुटि: " + e.message, "error");
+    }
+  }
+
+  // iPhone मा स्थानीय Face ID/Touch ID दर्ता गर्ने फसन
+  async function createLocalBiometricKey(emp) {
+    if (!window.PublicKeyCredential) return null;
+    try {
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+
+      const credential = await navigator.credentials.create({
+        publicKey: {
+          challenge: challenge,
+          rp: { name: "Attendance System", id: window.location.hostname },
+          user: {
+            id: Uint8Array.from(emp.uniqueId, c => c.charCodeAt(0)),
+            name: emp.uniqueId,
+            displayName: emp.name
+          },
+          pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
+          authenticatorSelection: {
+            authenticatorAttachment: "platform", // यसले अनिवार्य फोनको आफ्नै Face ID / Touch ID मात्र माग्छ (QR Code आउँदैन)
+            userVerification: "required"
+          },
+          timeout: 60000
+        }
+      });
+
+      const credId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
+      return credId;
+    } catch (e) {
+      console.log("Biometric creation skipped or failed: ", e);
+      return null;
     }
   }
 
@@ -138,7 +180,7 @@
     document.getElementById("empType").innerText = emp.empType;
   }
 
-  // २. अनिवार्य फिंगरप्रिन्ट/बायोमेट्रिक स्क्यान + हाजिरी
+  // २. हाजिरी गर्दा Face ID / Touch ID प्रमाणीकरण
   async function triggerAttendance() {
     const emp = JSON.parse(localStorage.getItem("emp_user"));
     const deviceToken = localStorage.getItem("device_token");
@@ -148,13 +190,12 @@
       return;
     }
 
-    showStatus("कृपया फिंगरप्रिन्ट / बायोमेट्रिक स्क्यान गर्नुहोस्...", "info");
+    showStatus("कृपया Face ID / Fingerprint स्क्यान गर्नुहोस्...", "info");
 
-    // Native Biometric / WebAuthn Call
     try {
-      await performNativeBiometricScan(emp);
+      await performNativeBiometricScan();
     } catch (err) {
-      showStatus("अस्वीकृत: फिंगरप्रिन्ट प्रमाणीकरण रद्द गरियो वा असफल भयो!", "error");
+      showStatus("अस्वीकृत: बायोमेट्रिक प्रमाणीकरण असफल वा रद्द भयो!", "error");
       return;
     }
 
@@ -197,8 +238,8 @@
     );
   }
 
-  // GitHub Pages मा सोझै चल्ने फिंगरप्रिन्ट (WebAuthn) स्क्यानर
-  async function performNativeBiometricScan(emp) {
+  // iPhone Safari को लागि सच्याइएको WebAuthn Scan फसन
+  async function performNativeBiometricScan() {
     if (!window.PublicKeyCredential) {
       throw new Error("बायोमेट्रिक सपोर्ट भएन");
     }
@@ -206,14 +247,23 @@
     const challenge = new Uint8Array(32);
     window.crypto.getRandomValues(challenge);
 
-    // मोबाइलको Native Fingerprint / Pattern / Face Unlock मागिन्छ
-    await navigator.credentials.get({
-      publicKey: {
-        challenge: challenge,
-        timeout: 60000,
-        userVerification: "required"
-      }
-    });
+    const savedCredId = localStorage.getItem("cred_id");
+    const options = {
+      challenge: challenge,
+      timeout: 60000,
+      userVerification: "required"
+    };
+
+    if (savedCredId) {
+      const rawId = Uint8Array.from(atob(savedCredId), c => c.charCodeAt(0));
+      options.allowCredentials = [{
+        id: rawId,
+        type: 'public-key'
+      }];
+    }
+
+    // authenticators platform मा सीमित गर्दा iPhone ले QR Code देखाउँदैन, सोझै Face ID / Touch ID खोल्छ
+    await navigator.credentials.get({ publicKey: options });
   }
 
   // ३. डिभाइस रिसेट फसनहरू
@@ -243,12 +293,13 @@
       if (res.status === "success") {
         localStorage.removeItem("emp_user");
         localStorage.removeItem("device_token");
+        localStorage.removeItem("cred_id");
 
         closeResetModal();
         document.getElementById("dashboard").classList.add("hidden");
         document.getElementById("loginForm").classList.remove("hidden");
 
-        showStatus("डिभाइस रिसेट भयो। अब अर्को कर्मचारी सेटअप गर्न सक्नुहुन्छ।", "success");
+        showStatus("डिभाइस रिसेट भयो। अब पुनः १st सेटअप गर्नुहोस्।", "success");
       } else {
         showStatus(res.message, "error");
       }
