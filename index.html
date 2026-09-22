@@ -239,32 +239,68 @@
   }
 
   // iPhone Safari को लागि सच्याइएको WebAuthn Scan फसन
-  async function performNativeBiometricScan() {
-    if (!window.PublicKeyCredential) {
-      throw new Error("बायोमेट्रिक सपोर्ट भएन");
-    }
+  // async function performNativeBiometricScan() {
+  //   if (!window.PublicKeyCredential) {
+  //     throw new Error("बायोमेट्रिक सपोर्ट भएन");
+  //   }
 
-    const challenge = new Uint8Array(32);
-    window.crypto.getRandomValues(challenge);
+  //   const challenge = new Uint8Array(32);
+  //   window.crypto.getRandomValues(challenge);
 
-    const savedCredId = localStorage.getItem("cred_id");
-    const options = {
-      challenge: challenge,
-      timeout: 60000,
-      userVerification: "required"
-    };
+  //   const savedCredId = localStorage.getItem("cred_id");
+  //   const options = {
+  //     challenge: challenge,
+  //     timeout: 60000,
+  //     userVerification: "required"
+  //   };
 
-    if (savedCredId) {
-      const rawId = Uint8Array.from(atob(savedCredId), c => c.charCodeAt(0));
-      options.allowCredentials = [{
-        id: rawId,
-        type: 'public-key'
-      }];
-    }
+  //   if (savedCredId) {
+  //     const rawId = Uint8Array.from(atob(savedCredId), c => c.charCodeAt(0));
+  //     options.allowCredentials = [{
+  //       id: rawId,
+  //       type: 'public-key'
+  //     }];
+  //   }
 
-    // authenticators platform मा सीमित गर्दा iPhone ले QR Code देखाउँदैन, सोझै Face ID / Touch ID खोल्छ
-    await navigator.credentials.get({ publicKey: options });
+  //   // authenticators platform मा सीमित गर्दा iPhone ले QR Code देखाउँदैन, सोझै Face ID / Touch ID खोल्छ
+  //   await navigator.credentials.get({ publicKey: options });
+  // }
+
+  // कडा (Strict) बायोमेट्रिक प्रमाणीकरण फसन
+async function performNativeBiometricScan() {
+  if (!window.PublicKeyCredential) {
+    throw new Error("यो डिभाइस/ब्राउजरमा बायोमेट्रिक सेक्युरिटी सपोर्ट गर्दैन।");
   }
+
+  // १. डिभाइसमा फिंगरप्रिन्ट / Face ID छ कि छैन अनिवार्य जाँच गर्ने
+  const isPlatformAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+  
+  if (!isPlatformAvailable) {
+    // बायोमेट्रिक नभएको डिभाइसमा सोझै ब्लक गर्ने (अघि बढ्न नदिने)
+    throw new Error("अस्वीकृत: यो डिभाइसमा फिंगरप्रिन्ट / Face ID / Screen Lock सेट गरिएको छैन। बायोमेट्रिक बिना हाजिरी गर्न पाइँदैन!");
+  }
+
+  const challenge = new Uint8Array(32);
+  window.crypto.getRandomValues(challenge);
+
+  const savedCredId = localStorage.getItem("cred_id");
+  const options = {
+    challenge: challenge,
+    timeout: 60000,
+    userVerification: "required"
+  };
+
+  if (savedCredId) {
+    const rawId = Uint8Array.from(atob(savedCredId), c => c.charCodeAt(0));
+    options.allowCredentials = [{
+      id: rawId,
+      type: 'public-key'
+    }];
+  }
+
+  // २. फिंगरप्रिन्ट / Face ID स्क्यान माग्ने
+  await navigator.credentials.get({ publicKey: options });
+}
 
   // ३. डिभाइस रिसेट फसनहरू
   function openResetModal() {
